@@ -179,7 +179,7 @@ with col1:
     st.plotly_chart(fig_w, use_container_width=True)
 
     # pie chart of composition
-    fig_pie = px.pie(weights_df, names='ticker', values='weight', title='Portfolio composition')
+    fig_pie = px.pie(weights_df[weights_df['weight']!=0], names='ticker', values='weight', title='Portfolio composition')
     st.plotly_chart(fig_pie, use_container_width=True)
 
     # download button for weights
