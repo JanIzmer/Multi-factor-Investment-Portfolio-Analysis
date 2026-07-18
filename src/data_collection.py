@@ -1,4 +1,4 @@
-# database/src/etl_fetch_prices.py
+# src/data_collection.py
 from datetime import datetime
 import os
 import pandas as pd
@@ -6,7 +6,7 @@ import yfinance as yf
 from sqlalchemy import text
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 
-from database.src.connection import setup_engine, get_engine
+from database.src.connection import setup_engine
 
 TICKERS = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA",
@@ -15,8 +15,6 @@ TICKERS = [
 START_DATE = os.getenv("PRICE_START_DATE", "2015-01-01")
 END_DATE = os.getenv("PRICE_END_DATE", datetime.today().strftime("%Y-%m-%d"))
 # ------------------------------------------------
-
-engine = setup_engine()
 
 
 def ensure_assets_exist(conn, tickers):
@@ -178,7 +176,7 @@ def upsert_prices(conn, asset_id, df_prices):
 
 
 def main(tickers=TICKERS, start=START_DATE, end=END_DATE):
-    engine = get_engine()
+    engine = setup_engine()
 
     # Step 1 — ensure all assets exist
     with engine.begin() as conn:

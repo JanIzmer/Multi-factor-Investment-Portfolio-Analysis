@@ -7,13 +7,13 @@ from sqlalchemy.engine import Engine
 load_dotenv()
 
 def build_database_url() -> str:
-    # Если есть полный URL в env, используем его (удобно)
+    # A full URL in the env takes precedence over individual settings
     url = os.getenv("DATABASE_URL")
     if url:
         return url
 
     dialect = os.getenv("DB_DIALECT", "mysql")
-    driver = os.getenv("DB_DRIVER", "pymysql")                # например pymysql
+    driver = os.getenv("DB_DRIVER", "pymysql")
     user = os.getenv("DB_USER", "root")
     password = os.getenv("DB_PASSWORD", "")
     host = os.getenv("DB_HOST", "127.0.0.1")

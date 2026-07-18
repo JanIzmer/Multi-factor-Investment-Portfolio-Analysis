@@ -1,6 +1,5 @@
 # src/returns_calculation.py
 import pandas as pd
-from sqlalchemy import text
 from database.src.connection import setup_engine, get_engine
 
 

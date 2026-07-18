@@ -14,8 +14,7 @@ sys.path.append(str(root))
 
 from database.src.connection import setup_engine, get_engine
 from src.risk.covariance import load_returns, compute_sample_cov, compute_expected_returns
-from src.risk.optimization import min_volatility, max_sharpe, portfolio_performance
-from src.utils import plot_correlation_heatmap  # optional fallback
+from src.risk.optimization import portfolio_performance
 
 # initialize engine (reads .env)
 setup_engine()

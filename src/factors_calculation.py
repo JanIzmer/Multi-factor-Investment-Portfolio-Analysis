@@ -1,6 +1,5 @@
 # src/factors_calculation.py
 import pandas as pd
-from sqlalchemy import text
 from database.src.connection import get_engine, setup_engine
 
 

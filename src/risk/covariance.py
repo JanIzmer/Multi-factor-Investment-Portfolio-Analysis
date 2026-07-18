@@ -1,9 +1,6 @@
 # src/risk/covariance.py
 import pandas as pd
-import numpy as np
-from sqlalchemy import text
 from database.src.connection import get_engine
-import datetime
 from typing import Optional
 
 def load_returns(tickers: Optional[list] = None, 
