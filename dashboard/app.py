@@ -74,11 +74,24 @@ if len(tickers) * max_weight < 1:
     st.error("Max weight is too low for the selected number of assets.")
     st.stop()
 
+returns_df = returns_df.sort_index()
+split_index = int(len(returns_df) * 0.7)
+if split_index < 2 or len(returns_df) - split_index < 2:
+    st.error("Select a date range with at least four trading days.")
+    st.stop()
+
+training_returns_df = returns_df.iloc[:split_index]
+backtest_returns_df = returns_df.iloc[split_index:]
+
 st.subheader("Data summary")
 c1, c2, c3 = st.columns(3)
 c1.metric("Tickers", len(returns_df.columns))
-c2.metric("Days", returns_df.shape[0])
-c3.metric("Start → End", f"{returns_df.index.min().date()} → {returns_df.index.max().date()}")
+c2.metric("Training days", len(training_returns_df))
+c3.metric("Backtest days", len(backtest_returns_df))
+st.caption(
+    f"Training: {training_returns_df.index.min().date()} → {training_returns_df.index.max().date()} | "
+    f"Out-of-sample: {backtest_returns_df.index.min().date()} → {backtest_returns_df.index.max().date()}"
+)
 
 # Compute cov and expected returns (cached)
 @st.cache_data(ttl=600)
@@ -88,10 +101,10 @@ def compute_risk_metrics(returns_df):
     corr = returns_df.corr()
     return cov, mu, corr
 
-cov_matrix, mu, corr_matrix = compute_risk_metrics(returns_df)
+cov_matrix, mu, corr_matrix = compute_risk_metrics(training_returns_df)
 
 # Left: correlation heatmap
-st.subheader("Correlation matrix")
+st.subheader("Training-period correlation matrix")
 fig_corr = px.imshow(corr_matrix, 
                      labels=dict(x="Asset", y="Asset", color="Correlation"),
                      x=corr_matrix.columns, y=corr_matrix.index,
@@ -122,8 +135,8 @@ def compute_perf_metrics(ts_returns, rf=0.02):
     return {"CAGR": cagr, "AnnVol": ann_vol, "AnnRet": ann_ret, "Sharpe": sharpe, "MaxDD": max_dd}
 
 # Optimize portfolio
-st.subheader("Optimization")
-tickers_list = list(returns_df.columns)
+st.subheader("Optimization (training period)")
+tickers_list = list(training_returns_df.columns)
 mean_returns = mu.loc[tickers_list].values
 cov_sub = cov_matrix.loc[tickers_list, tickers_list].values
 
@@ -206,29 +219,27 @@ with col2:
 
 # Compute portfolio performance
 port_ret, port_vol = portfolio_performance(weights, mean_returns, cov_sub)
-st.metric("Portfolio expected annual return", f"{port_ret:.2%}")
-st.metric("Portfolio expected annual volatility", f"{port_vol:.2%}")
-st.metric("Approx Sharpe (rf=2%)", f"{(port_ret-0.02)/port_vol:.2f}")
+st.metric("Expected annual return (training)", f"{port_ret:.2%}")
+st.metric("Expected annual volatility (training)", f"{port_vol:.2%}")
+st.metric("Approx Sharpe (training, rf=2%)", f"{(port_ret-0.02)/port_vol:.2f}")
 
-# Compute historical cumulative returns (using the selected weights on historical returns)
-st.subheader("Cumulative returns (backtest with historical weights)")
+st.subheader("Out-of-sample cumulative returns")
 weights_array = weights_df['weight'].values
-portfolio_ts = (returns_df.fillna(0) * weights_array).sum(axis=1)
+portfolio_ts = (backtest_returns_df.fillna(0) * weights_array).sum(axis=1)
 cum = (1 + portfolio_ts).cumprod()
 fig = px.line(cum, labels={"index":"Date", 0:"Cumulative Return"})
-fig.update_layout(title="Portfolio cumulative returns (using historical weights)")
+fig.update_layout(title="Portfolio cumulative returns (out-of-sample)")
 st.plotly_chart(fig, use_container_width=True)
 
-# Display performance metrics computed from historical portfolio returns
 perf = compute_perf_metrics(portfolio_ts)
 perf_df = pd.Series(perf).rename_axis("metric").reset_index()
 perf_df.columns = ["metric", "value"]
 perf_df["value_str"] = perf_df["value"].apply(lambda x: f"{x:.2%}" if np.isfinite(x) else "N/A")
-st.write("Performance (historical)")
+st.write("Performance (out-of-sample)")
 st.table(perf_df[["metric", "value_str"]])
 
 # Efficient frontier (approx) — sample many target returns and minimize vol
-st.subheader("Efficient frontier (approx)")
+st.subheader("Efficient frontier (training period, approx)")
 def efficient_frontier(mean_returns, cov, points=50):
     n = len(mean_returns)
     # bounds & constraint sum=1
@@ -312,5 +323,3 @@ with col_a:
                     st.success(f"Saved portfolio id {pid}")
                 except Exception as e:
                     st.error(f"Failed to save portfolio: {e}")
-
-
