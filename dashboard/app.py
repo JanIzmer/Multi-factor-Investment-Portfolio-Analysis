@@ -82,7 +82,7 @@ c3.metric("Start → End", f"{returns_df.index.min().date()} → {returns_df.ind
 def compute_risk_metrics(returns_df):
     cov = compute_sample_cov(returns_df)            
     mu = compute_expected_returns(returns_df)       
-    corr = cov.corr()
+    corr = returns_df.corr()
     return cov, mu, corr
 
 cov_matrix, mu, corr_matrix = compute_risk_metrics(returns_df)
@@ -309,7 +309,6 @@ with col_a:
                     st.success(f"Saved portfolio id {pid}")
                 except Exception as e:
                     st.error(f"Failed to save portfolio: {e}")
-
 
 
 
