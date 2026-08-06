@@ -70,6 +70,9 @@ returns_df = get_filtered_returns(tickers, start_date, end_date)
 if returns_df.empty:
     st.warning("No returns in the selected window / tickers. Adjust filters.")
     st.stop()
+if len(tickers) * max_weight < 1:
+    st.error("Max weight is too low for the selected number of assets.")
+    st.stop()
 
 st.subheader("Data summary")
 c1, c2, c3 = st.columns(3)
@@ -309,6 +312,5 @@ with col_a:
                     st.success(f"Saved portfolio id {pid}")
                 except Exception as e:
                     st.error(f"Failed to save portfolio: {e}")
-
 
 
