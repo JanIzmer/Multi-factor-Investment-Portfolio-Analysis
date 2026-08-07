@@ -36,18 +36,32 @@ def load_returns(tickers: Optional[list] = None,
             return pd.DataFrame()
     return df
 
+def align_returns(returns_df):
+    """
+    Keep only dates where every asset has a return (listwise deletion).
+
+    Pandas computes .cov()/.mean() with pairwise deletion, so each cell of the
+    matrix would come from a different subset of dates. That can produce a
+    non-PSD covariance matrix and means estimated over different periods, which
+    the optimizer then treats as comparable. Estimating on a common date panel
+    avoids both problems.
+    """
+    if returns_df is None or returns_df.empty:
+        return returns_df
+    return returns_df.dropna(how="any")
+
 def compute_sample_cov(returns_df):
     """
-    Compute sample covariance matrix (annualized)
+    Compute sample covariance matrix (annualized) on a common date panel.
     """
-    cov_daily = returns_df.cov()
+    cov_daily = align_returns(returns_df).cov()
     cov_annual = cov_daily * 252  # assume 252 trading days
     return cov_annual
 
 def compute_expected_returns(returns_df):
     """
-    Compute expected returns (annualized mean)
+    Compute expected returns (annualized mean) on a common date panel.
     """
-    mean_daily = returns_df.mean()
+    mean_daily = align_returns(returns_df).mean()
     mean_annual = mean_daily * 252
     return mean_annual

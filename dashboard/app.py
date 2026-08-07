@@ -13,7 +13,7 @@ root = Path(__file__).parent.parent
 sys.path.append(str(root))
 
 from database.src.connection import setup_engine, get_engine
-from src.risk.covariance import load_returns, compute_sample_cov, compute_expected_returns
+from src.risk.covariance import load_returns, compute_sample_cov, compute_expected_returns, align_returns
 from src.risk.optimization import portfolio_performance
 
 # initialize engine (reads .env)
@@ -75,6 +75,16 @@ if len(tickers) * max_weight < 1:
     st.stop()
 
 returns_df = returns_df.sort_index()
+
+# Estimate μ and Σ on a common date panel: drop any date where at least one
+# selected asset is missing, so every pairwise estimate uses the same sample.
+raw_days = len(returns_df)
+returns_df = align_returns(returns_df)
+dropped_days = raw_days - len(returns_df)
+if returns_df.empty:
+    st.error("No dates where all selected assets have data. Remove assets with short history.")
+    st.stop()
+
 split_index = int(len(returns_df) * 0.7)
 if split_index < 2 or len(returns_df) - split_index < 2:
     st.error("Select a date range with at least four trading days.")
@@ -92,6 +102,12 @@ st.caption(
     f"Training: {training_returns_df.index.min().date()} → {training_returns_df.index.max().date()} | "
     f"Out-of-sample: {backtest_returns_df.index.min().date()} → {backtest_returns_df.index.max().date()}"
 )
+if dropped_days:
+    st.caption(
+        f"Dropped {dropped_days} of {raw_days} dates ({dropped_days / raw_days:.1%}) "
+        "where at least one selected asset had no return, so μ and Σ are estimated "
+        "on a single common sample."
+    )
 
 # Compute cov and expected returns (cached)
 @st.cache_data(ttl=600)
@@ -225,7 +241,8 @@ st.metric("Approx Sharpe (training, rf=2%)", f"{(port_ret-0.02)/port_vol:.2f}")
 
 st.subheader("Out-of-sample cumulative returns")
 weights_array = weights_df['weight'].values
-portfolio_ts = (backtest_returns_df.fillna(0) * weights_array).sum(axis=1)
+# no fillna needed: the panel is aligned, every date has all assets
+portfolio_ts = (backtest_returns_df * weights_array).sum(axis=1)
 cum = (1 + portfolio_ts).cumprod()
 fig = px.line(cum, labels={"index":"Date", 0:"Cumulative Return"})
 fig.update_layout(title="Portfolio cumulative returns (out-of-sample)")
