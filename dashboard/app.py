@@ -13,7 +13,13 @@ root = Path(__file__).parent.parent
 sys.path.append(str(root))
 
 from database.src.connection import setup_engine, get_engine
-from src.risk.covariance import load_returns, compute_sample_cov, compute_expected_returns, align_returns
+from src.risk.covariance import (
+    load_returns,
+    compute_expected_returns,
+    align_returns,
+    ledoit_wolf_shrinkage,
+    nearest_psd,
+)
 from src.risk.optimization import portfolio_performance
 
 # initialize engine (reads .env)
@@ -112,12 +118,21 @@ if dropped_days:
 # Compute cov and expected returns (cached)
 @st.cache_data(ttl=600)
 def compute_risk_metrics(returns_df):
-    cov = compute_sample_cov(returns_df)            
-    mu = compute_expected_returns(returns_df)       
+    cov_daily, delta = ledoit_wolf_shrinkage(returns_df)
+    cov, min_eig = nearest_psd(cov_daily * 252)
+    mu = compute_expected_returns(returns_df)
     corr = returns_df.corr()
-    return cov, mu, corr
+    return cov, mu, corr, delta, min_eig
 
-cov_matrix, mu, corr_matrix = compute_risk_metrics(training_returns_df)
+cov_matrix, mu, corr_matrix, shrink_delta, min_eig = compute_risk_metrics(training_returns_df)
+
+st.caption(f"Ledoit-Wolf shrinkage intensity δ = {shrink_delta:.3f} (0 = raw sample covariance, 1 = constant-correlation target)")
+if min_eig < 0:
+    st.warning(
+        f"Covariance matrix was not positive semi-definite (min eigenvalue {min_eig:.2e}) "
+        "even after shrinkage; it was projected onto the PSD cone. Check for assets with "
+        "near-identical or very short return histories."
+    )
 
 # Left: correlation heatmap
 st.subheader("Training-period correlation matrix")
